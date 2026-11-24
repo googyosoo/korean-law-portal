@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>상세 가이드 | Korean Law Portal</title>
+    <meta name="description" content="Korean Law Portal의 15개 도구 아키텍처, 체인 도구, 17개 결정례 도메인 및 API 키 설정 가이드">
+    <meta property="og:title" content="상세 가이드 | Korean Law Portal">
+    <meta property="og:description" content="법제처 41개 Open API를 15개 AI 스마트 도구로 연결하는 기술 문서">
+    <meta property="og:type" content="article">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="bg-animated">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="grid-overlay"></div>
+    </div>
+    
+    <!-- Navbar -->
+    <nav class="glass-nav">
+        <div class="container nav-content">
+            <a href="index.html" class="logo">
+                <div class="logo-icon"><i class="fa-solid fa-scale-balanced"></i></div>
+                <span>Korean Law Portal</span>
+            </a>
+            <div class="nav-links">
+                <a href="index.html#three-things">활용 안내</a>
+                <a href="index.html#school-laws">학교 업무 법령</a>
+                <a href="index.html#installation">설치 안내</a>
+                <a href="docs.html" style="color:var(--primary); font-weight:700;">상세 문서</a>
+                <a href="https://github.com/chrisryugj/korean-law-mcp" target="_blank" class="btn-outline"><i class="fa-brands fa-github"></i> 원작 GitHub</a>
+                <button class="theme-toggle-btn" id="theme-toggle" aria-label="테마 변경"><i class="fa-solid fa-moon"></i></button>
+            </div>
+            <button class="mobile-menu-btn"><i class="fa-solid fa-bars"></i></button>
+        </div>
+    </nav>
+
+    <!-- Docs Layout -->
+    <div class="docs-layout container">
+        <!-- Sidebar -->
+        <aside class="docs-sidebar glass-panel">
+            <div class="heading">시작하기</div>
+            <ul>
+                <li><a href="#intro" class="active">소개 (Introduction)</a></li>
+                <li><a href="#architecture">아키텍처 (Architecture)</a></li>
+            </ul>
+            
+            <div class="heading">도구 레퍼런스</div>
+            <ul>
+                <li><a href="#chain-tools">체인 도구 (Chain Tools)</a></li>
+                <li><a href="#unified-tools">통합 도메인 조회</a></li>
+            </ul>
+            
+            <div class="heading">설정 & 확장</div>
+            <ul>
+                <li><a href="#api-key">API 키 인증 가이드</a></li>
+                <li><a href="#troubleshooting">문서 파싱 (kordoc)</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="docs-content glass-panel" style="margin-bottom: 4rem;">
+            <section id="intro">
+                <h1>Korean Law MCP 상세 가이드</h1>
+                <p>대한민국 법령정보센터(law.go.kr)의 방대한 API 생태계를 모델 컨텍스트 프로토콜(MCP)의 형태로 사용할 수 있도록 만든 연결 도구입니다. 41개 이상의 Open API를 최적화하여 Claude, Cursor, Windsurf와 같은 AI 어시스턴트가 <strong>단 15개의 시맨틱 도구</strong>로 조작할 수 있게 설계되었습니다.</p>
+                <blockquote><strong>주의:</strong> 모든 도구 호출에는 법제처에서 발급받은 무료 인증키(OC)가 필요합니다.</blockquote>
+            </section>
+
+            <section id="architecture">
+                <h2>V3 시스템 아키텍처 개요</h2>
+                <p>과거 V2 버전에서는 하나의 API당 하나의 커스텀 도구를 매핑하여(총 89개) AI 프롬프트의 컨텍스트를 과다하게 소모했습니다. 이를 획기적으로 개선한 V3에서는 <strong>Dispatch Table</strong> 방식을 사용하여 15개 도구로 통합했습니다.</p>
+                <ul>
+                    <li>17개 결정례 도메인(판례, 조세심판 등)을 단일 파라미터 <code>domain</code>으로 라우팅.</li>
+                    <li>7가지 상황별 AI 리서치 시나리오(관세, 벌칙 판단, 위임입법 검증 등) 자동 파생.</li>
+                    <li>AI 초기 토큰 소모량 110KB에서 약 20KB로 압축 (-82%).</li>
+                </ul>
+                
+                <div class="code-block-wrapper">
+                    <div class="code-header">
+                        <span>도구 호출 흐름도</span>
+                    </div>
+<pre><code>"화관법 최근 개정된 내용 알려줘"
+  ↓
+search_law("화학물질관리법" 자동 약칭 변환 적용)
+  ↓
+MST 고유코드 획득 완료
+  ↓
+chain_amendment_track(mst, "시계열 분석")</code></pre>
+                </div>
+            </section>
+
+            <section id="chain-tools">
+                <h2>핵심 체인 도구 (Chain Tools)</h2>
+                <p>단순한 데이터 조회가 아니라, AI의 복잡한 쿼리를 처리하기 위해 여러 API를 백그라운드에서 순차/병렬적으로 호출하는 지능형 도구들입니다.</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tool Name</th>
+                            <th>기능 설명 (Description)</th>
+                            <th>지원 시나리오 속성</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>chain_full_research</code></td>
+                            <td>주제에 관한 법령부터 판례, 해석례까지 망라하여 종합 분석합니다.</td>
+                            <td><code>customs</code> (관세) 등</td>
+                        </tr>
+                        <tr>
+                            <td><code>chain_law_system</code></td>
+                            <td>법제 구조도 조회(상/하위법, 위임입법 구조 추적). 미제정 하위법령을 찾습니다.</td>
+                            <td><code>delegation</code>, <code>impact</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>chain_action_basis</code></td>
+                            <td>행정처분(과태료, 영업정지, 인허가)의 법적 근거와 경감 사례를 추적합니다.</td>
+                            <td><code>penalty</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>chain_amendment_track</code></td>
+                            <td>특정 조문의 과거 개정 이력 기록 및 신구대조표를 테이블 형태로 생성합니다.</td>
+                            <td><code>timeline</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>chain_ordinance_compare</code></td>
+                            <td>상위법과 지자체 자치법규(조례)간의 적합도를 비교하고 위헌 소지를 조회합니다.</td>
+                            <td><code>compliance</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section id="unified-tools">
+                <h2>17 통합 도메인 검색 엔진</h2>
+                <p><code>search_decisions(domain, query)</code> 하나의 통합 도구 인터페이스로 아래의 17개 이질적인 도메인에 대한 전문 검색이 가능합니다.</p>
+                <ul>
+                    <li><strong>사법 및 재결:</strong> 판례(대법원), 헌재결정례, 조세심판, 행정심판, 소청심사</li>
+                    <li><strong>정부 유권해석:</strong> 법령해석례, 행정규칙(훈령/예규), 권익위, 개인정보위, 공정위, 노동위</li>
+                    <li><strong>기타 규정:</strong> 자치법규, 조약, 영문법령, 학칙, 공사공단 등</li>
+                </ul>
+            </section>
+            
+            <section id="api-key">
+                <h2>API 키 인증 (Priority Fallback)</h2>
+                <p>앱 보안 환경이나 클라이언트 도구에 맞게 다양한 방식으로 API 인증키를 설정할 수 있습니다. (높은 번호가 우선 적용)</p>
+                <ol>
+                    <li><code>URL 쿼리 파라미터:</code> 원격 서버 접근 시 <code>?oc=YOURKEY</code> 부여</li>
+                    <li><code>HTTP 헤더:</code> API 직접 호출 시 <code>apikey: YOURKEY</code></li>
+                    <li><code>시스템 환경 변수:</code> CLI/로컬 환경에서 <code>LAW_OC=YOURKEY</code> 환경 변수 등록</li>
+                    <li><code>MCP 도구 파라미터:</code> 클라이언트에서 런타임에 <code>apiKey</code> 매개변수 사용</li>
+                </ol>
+            </section>
+
+            <section id="troubleshooting">
+                <h2>별표 문서 자동 파싱 엔진 (kordoc 2.2)</h2>
+                <p>대한민국 법령의 핵심인 '별표', '별지 서식'의 한글 문서 포맷들을 완벽하게 AI가 이해할 수 있는 마크다운 스키마로 분해합니다.</p>
+                <ul>
+                    <li><strong>HWPX, DOCX</strong>: kordoc 엔진을 통한 텍스트 및 병합 셀 구조 완전 유지</li>
+                    <li><strong>XLSX (엑셀)</strong>: GFM Markdown 테이블 양식으로 변환</li>
+                    <li><strong>HTML 병합 셀 지원:</strong> colSpan, rowSpan이 포함된 복잡한 과태료 처분 기준표 등을 HTML 표 형태로 브릿지</li>
+                </ul>
+            </section>
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container footer-content glass-panel">
+            <div class="footer-brand">
+                <div class="logo-icon"><i class="fa-solid fa-scale-balanced"></i></div>
+                <strong>Korean Law Portal</strong>
+            </div>
+            <p class="footer-desc">
+                선생님과 학생을 위한 대한민국 법령 탐색 및 AI MCP 연동 기술 상세 가이드
+            </p>
+            <div class="footer-attribution">
+                <p>
+                    <strong>원작 오픈소스:</strong> <a href="https://github.com/chrisryugj/korean-law-mcp" target="_blank" rel="noopener noreferrer">korean-law-mcp</a> (제작: 광진구청 AI동호회 AI.Do 류주임, <a href="https://github.com/chrisryugj/korean-law-mcp/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a>)
+                </p>
+                <p class="footer-notice">
+                    본 포털은 공공데이터 활용을 돕기 위해 비영리 교육 안내 목적으로 제작되었습니다.
+                </p>
+                <p class="footer-disclaimer">
+                    <i class="fa-solid fa-triangle-exclamation"></i> 면책 고지: 본 가이드의 기술적 내용 및 법령 연계는 법적 효력을 갖는 공식 유권해석이 아닙니다. 실제 학교 사안 처리는 관할 교육청 법률지원단 또는 공인 법률 전문가와 상담하시기 바랍니다.
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Active Sidebar Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const sidebarLinks = document.querySelectorAll('.docs-sidebar a');
+            const sections = document.querySelectorAll('.docs-content section');
+
+            // Scrollspy mechanism
+            const observer = new IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    if(entry.isIntersecting) {
+                        const id = entry.target.getAttribute('id');
+                        sidebarLinks.forEach(link => {
+                            if(link.getAttribute('href') === '#' + id) {
+                                link.classList.add('active');
+                            } else {
+                                link.classList.remove('active');
+                            }
+                        });
+                    }
+                });
+            }, { rootMargin: "-80px 0px -60% 0px" });
+
+            sections.forEach(sec => observer.observe(sec));
+        });
+    </script>
+    <script src="script.js"></script>
+</body>
+</html>
